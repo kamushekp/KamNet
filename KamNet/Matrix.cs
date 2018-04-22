@@ -25,10 +25,28 @@ namespace KamNet
         private int allowedToExclusiveY;
 
         /// <summary>
+        ///     высота и ширина внутреннего массива с данными data[][]
+        /// </summary>
+        private int dataHeight;
+        private int dataWidth;
+
+        /// <summary>
         ///     параметры матрицы выражаются относительно ограничетельных индексов.
         /// </summary>
-        public int Height { get { return data != null ? allowedToExclusiveY - allowedFromInclusiveY : 0; } }
-        public int Width { get { return data != null ? (data[allowedFromInclusiveY] != null ? allowedToExclusiveX - allowedFromInclusiveX : 0) : 0; } }
+        public int Height
+        {
+            get
+            {
+                return allowedToExclusiveY - allowedFromInclusiveY;
+            }
+        }
+        public int Width
+        {
+            get
+            {
+                return allowedToExclusiveX - allowedFromInclusiveX;
+            }
+        }
 
 
         /// <summary>
@@ -66,12 +84,14 @@ namespace KamNet
         /// <param name="data"></param>
         public Matrix(double[][] data)
         {
-            if (AreRowsNotSameSize(data))
+            if (IsDataEmpty(data) || AreRowsNotSameSize(data))
             {
                 throw new ArgumentException();
             }
 
-            InitFromData(data);
+            SetData(data);
+
+            SetDefaultIndexing();
         }
 
         /// <summary>
@@ -87,11 +107,12 @@ namespace KamNet
                 throw new ArgumentException();
             }
 
-            data = (new double[rows][]).
+            var newArray = (new double[rows][]).
                 Select(x => (new double[columns]).Select(_ => initializer).ToArray()).
                 ToArray();
 
-            InitFromData(data);
+            SetData(newArray);
+            SetDefaultIndexing();
         }
 
         /// <summary>
@@ -100,12 +121,8 @@ namespace KamNet
         /// <param name="matrix">   Матрица, содержимое которой будет скопировано </param>
         public Matrix(Matrix matrix)
         {
-            this.data = matrix.data.Select(x => x.Select(e => e).ToArray()).ToArray();
-
-            this.allowedFromInclusiveX = matrix.allowedFromInclusiveX;
-            this.allowedFromInclusiveY = matrix.allowedFromInclusiveY;
-            this.allowedToExclusiveX = matrix.allowedToExclusiveX;
-            this.allowedToExclusiveY = matrix.allowedToExclusiveY;
+            SetData(CopyData(matrix.data));
+            SetIndexing(matrix);
         }
 
         /// <summary>
@@ -135,11 +152,12 @@ namespace KamNet
                 }
             }
 
-            InitFromData(result.data);
+            SetData(result.data);
+            SetDefaultIndexing();
         }
 
         /// <summary>
-        ///     обертывание части исходного массива.
+        ///     обертывание части исходного массива данных double[][] в объект типа "матрица"
         /// </summary>
         /// <param name="data"> обертываемый массив</param>
         /// <param name="sliceFromInclusiveX"> начальный индекс по столбцам, включительно </param>
@@ -149,7 +167,8 @@ namespace KamNet
         /// <param name="useOriginal"> True = будет использована память передаваемого массива (по ссылке). False = данные будут скопированы (по значению) </param>
         public Matrix(double[][] data, int sliceFromInclusiveX, int sliceToExclusiveX, int sliceFromInclusiveY, int sliceToExclusiveY, bool useOriginal = true)
         {
-            if (sliceFromInclusiveX >= sliceToExclusiveX || sliceFromInclusiveY >= sliceToExclusiveY)
+            if (sliceFromInclusiveX >= sliceToExclusiveX ||
+                sliceFromInclusiveY >= sliceToExclusiveY )
             {
                 throw new ArgumentException();
             }
@@ -161,22 +180,38 @@ namespace KamNet
 
             if (useOriginal)
             {
-                this.data = data;
+                SetData(data);
             }
             else
             {
-                this.data = GetCopiedMatrixData(data);
+                SetData(CopyData(data));
             }
 
-            this.allowedFromInclusiveX = sliceFromInclusiveX;
-            this.allowedFromInclusiveY = sliceFromInclusiveY;
-            this.allowedToExclusiveX = sliceToExclusiveX;
-            this.allowedToExclusiveY = sliceToExclusiveY;
+            if (sliceFromInclusiveX < 0 ||
+                sliceFromInclusiveY < 0 ||
+                sliceToExclusiveX > dataWidth ||
+                sliceToExclusiveY > dataHeight)
+            {
+                throw new ArgumentException();
+            }
+
+            SetIndexing(sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY);
         }
 
         public Matrix GetSubMatrix(int sliceFromInclusiveX, int sliceToExclusiveX, int sliceFromInclusiveY, int sliceToExclusiveY, bool useOriginal = true)
         {
             return new Matrix(data, sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY, useOriginal);
+        }
+
+        public IEnumerable<double> GetElements()
+        {
+            for (int i = allowedFromInclusiveY; i < allowedToExclusiveY; i++)
+            {
+                for (int j = allowedFromInclusiveX; j < allowedToExclusiveX; j++)
+                {
+                    yield return this.data[i][j];
+                }
+            }
         }
 
         public void ApplyElementwiseFunction(Func<double, double> func)
@@ -227,12 +262,6 @@ namespace KamNet
             }
         }
 
-        private void InitFromData(double[][] data)
-        {
-            this.data = data;
-            SetDefaultIndexing();
-        }
-
         private bool AreShapesSame(Matrix first, Matrix second)
         {
             var areSame = first.allowedFromInclusiveX == second.allowedFromInclusiveX &&
@@ -243,9 +272,32 @@ namespace KamNet
             return areSame;
         }
 
-        private double[][] GetCopiedMatrixData(double[][] data)
+        private double[][] CopyData(double[][] data)
         {
             return data.Select(row => row.Select(element => element).ToArray()).ToArray();
+        }
+
+        private void SetData(double[][] data)
+        {
+            this.data = data;
+            this.dataHeight = data.Length;
+            this.dataWidth = data[0].Length;
+        }
+
+        private void SetIndexing(int allowedFromInclusiveX, int allowedFromInclusiveY, int allowedToExclusiveX, int allowedToExclusiveY)
+        {
+            this.allowedFromInclusiveX = allowedFromInclusiveX;
+            this.allowedFromInclusiveY = allowedFromInclusiveY;
+            this.allowedToExclusiveX = allowedToExclusiveX;
+            this.allowedToExclusiveY = allowedToExclusiveY;
+        }
+
+        private void SetIndexing(Matrix matrix)
+        {
+            this.allowedFromInclusiveX = matrix.allowedFromInclusiveX;
+            this.allowedFromInclusiveY = matrix.allowedFromInclusiveY;
+            this.allowedToExclusiveX = matrix.allowedToExclusiveX;
+            this.allowedToExclusiveY = matrix.allowedToExclusiveY;
         }
 
         private bool AreRowsNotSameSize(double[][] data)
@@ -253,114 +305,20 @@ namespace KamNet
             var lenghts = data.Select(x => x.Length);
             return !lenghts.All(x => x == lenghts.FirstOrDefault());
         }
-    }
 
-    public static class MatrixExtensions
-    {
-        public static Matrix KernelPooling(this Matrix matrix, Matrix kernel, bool zeroPaddedEdges = false)
+        private bool IsDataEmpty(double[][] data)
         {
-            if (kernel.Height != kernel.Width || kernel.Width % 2 != 1) throw new NotImplementedException();
-
-            var kernelSize = kernel.Width;
-            var half = kernelSize / 2;
-
-            Matrix result;
-            Func<int, int> xIndex, yIndex;
-            if (zeroPaddedEdges)
+            if (data == null)
             {
-                result = new Matrix(matrix.Height, matrix.Width);
-                xIndex = x => x;
-                yIndex = y => y;
-            }
-            else
-            {
-                result = new Matrix(matrix.Height - kernelSize + 1, matrix.Width - kernelSize + 1);
-                xIndex = x => x - half;
-                yIndex = y => y - half;
+                return true;
             }
 
-            for (int y = half; y < result.Height - half; y++)
+            if (data[0] == null || data[0].Length == 0)
             {
-                for (int x = half; x < result.Width - half; x++)
-                {
-                    var subMatrix = matrix.GetSubMatrix(x, x + kernelSize, y, y + kernelSize);
-
-                    result[yIndex(y), xIndex(x)] = Convolve(subMatrix, kernel);
-                }
+                return true;
             }
 
-            return result;
-        }
-
-        public static Matrix MaxPooling(this Matrix matrix, int windowSize, bool zeroPaddedEdges = false)
-        {
-            if (windowSize % 2 != 1) throw new ArgumentException();
-
-            if (zeroPaddedEdges) throw new NotImplementedException();
-
-            var half = windowSize / 2;
-
-            Matrix result;
-            Func<int, int> xIndex, yIndex;
-            if (zeroPaddedEdges)
-            {
-                result = new Matrix(matrix.Height, matrix.Width);
-                xIndex = x => x;
-                yIndex = y => y;
-            }
-            else
-            {
-                result = new Matrix(matrix.Height - windowSize + 1, matrix.Width - windowSize + 1);
-                xIndex = x => x - half;
-                yIndex = y => y - half;
-            }
-
-            for (int y = half; y < result.Height - half; y++)
-            {
-                for (int x = half; x < result.Width - half; x++)
-                {
-                    var subMatrix = matrix.GetSubMatrix(x, x + windowSize, y, y + windowSize);
-
-                    result[yIndex(y), xIndex(x)] = subMatrix.GetElements().Max();
-                }
-            }
-
-            return result;
-        }
-
-
-        private static double Convolve(Matrix first, Matrix second)
-        {
-            if (first.Width != second.Width || first.Height != second.Height)
-            {
-                throw new NotImplementedException();
-            }
-            
-            var sum = 0.0;
-
-            for (int i = 0; i < first.Height; i++)
-            {
-                for (int j = 0; j < first.Width; j++)
-                {
-                    if (first.IsInBounds(i, j) && second.IsInBounds(i, j))
-                    {
-                        sum += first[i, j] * second[i, j];
-                    }
-                }
-            }
-
-            return sum;
-        }
-
-        public static IEnumerable<double> GetElements(this Matrix matrix)
-        {
-            for(int i = 0; i < matrix.Height; i++)
-            {
-                for (int j = 0; j < matrix.Width; j++)
-                {
-                    yield return matrix[i, j];
-                }
-            }
+            return false;
         }
     }
 }

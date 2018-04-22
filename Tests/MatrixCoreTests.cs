@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Tests
 {
-    public class Tests
+    public class MatrixCoreTests
     {
         private double[][] data;
         
