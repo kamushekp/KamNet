@@ -15,7 +15,7 @@ namespace KamNet
         private double[][] data;
 
         /// <summary>
-        ///     ограничительные индексы, в рамках которых идет итерация внутри массива с данными.
+        ///     ограничительные индексы, в рамках которых идет итерация по внутриннему массиву с данными.
         ///     Нужно для того, чтобы можно было создавать слайсы матрицы без копирования данных.
         /// </summary>
         private int allowedFromInclusiveX;
@@ -50,7 +50,7 @@ namespace KamNet
 
 
         /// <summary>
-        ///     индексация явно с 0 до высоты/ширины, но неявно - с учетом ограничительных индексов
+        ///     индексация явно с 0 до высоты/ширины, но неявно (вдруг это слайс) - с учетом ограничительных индексов
         /// </summary>
         /// <param name="y"></param>
         /// <param name="x"></param>
@@ -69,7 +69,7 @@ namespace KamNet
 
             set
             {
-                if (IsInBounds(x, y))
+                if (!IsInBounds(x, y))
                 {
                     throw new ArgumentNullException();
                 }
@@ -102,11 +102,6 @@ namespace KamNet
         /// <param name="initializer"> значение по умолчанию для элементов матрицы </param>
         public Matrix(int rows, int columns, double initializer = 0)
         {
-            if (AreRowsNotSameSize(data))
-            {
-                throw new ArgumentException();
-            }
-
             var newArray = (new double[rows][]).
                 Select(x => (new double[columns]).Select(_ => initializer).ToArray()).
                 ToArray();
@@ -198,9 +193,36 @@ namespace KamNet
             SetIndexing(sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY);
         }
 
+        /// <summary>
+        ///     Квадратная подматрица со стороной нечетного размера, задаваемая центром и шириной.
+        /// </summary>
+        /// <param name="centerX"> Координата центра по оси Х </param>
+        /// <param name="centerY"> Координата центра по оси У </param>
+        /// <param name="width"> Ширина подматрицы (нечетное число) </param>э
+        /// <param name="useOriginal"> Использовать оригинальную память / выделить новую </param>
+        /// <returns> Квадратная подматрица </returns>
+        public Matrix GetSubMatrix(int centerX, int centerY, int width, bool useOriginal = true)
+        {
+            if (width % 2 != 1)
+            {
+                throw new ArgumentException();
+            }
+
+            if (centerX < allowedFromInclusiveX ||
+                centerY < allowedFromInclusiveY ||
+                centerX >= allowedToExclusiveX ||
+                centerY >= allowedToExclusiveY)
+            {
+                throw new ArgumentException();
+            }
+
+            var half = width / 2;
+            return new Matrix(data, centerX - half, centerX + half + 1, centerY - half, centerY + half + 1, useOriginal);
+        }
+
         public Matrix GetSubMatrix(int sliceFromInclusiveX, int sliceToExclusiveX, int sliceFromInclusiveY, int sliceToExclusiveY, bool useOriginal = true)
         {
-            return new Matrix(data, sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY, useOriginal);
+            return new Matrix(data, sliceFromInclusiveX, sliceToExclusiveX, sliceFromInclusiveY, sliceToExclusiveY, useOriginal);
         }
 
         public IEnumerable<double> GetElements()
@@ -212,6 +234,38 @@ namespace KamNet
                     yield return this.data[i][j];
                 }
             }
+        }
+
+        public override bool Equals(object obj)
+        {
+            var another = obj as Matrix;
+            if (another == null)
+            {
+                return false;
+            }
+
+            if (this.Height != another.Height || this.Width != another.Width)
+            {
+                return false;
+            }
+
+            var firstElems = this.GetElements().ToArray();
+            var secondElems = another.GetElements().ToArray();
+
+            for (int i = 0; i < firstElems.Length; i++)
+            {
+                if (firstElems[i] != secondElems[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public override string ToString()
+        {
+            return $"Matrix [{Height} x {Width}] from data {data} shape of [{dataHeight} x {dataWidth}]";
         }
 
         public void ApplyElementwiseFunction(Func<double, double> func)

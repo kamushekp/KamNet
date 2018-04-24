@@ -16,24 +16,36 @@ namespace KamNet
 
             Matrix result;
             Func<int, int> xIndex, yIndex;
+            int xFrom, xTo, yFrom, yTo;
+
             if (zeroPaddedEdges)
             {
                 result = new Matrix(matrix.Height, matrix.Width);
+
                 xIndex = x => x;
                 yIndex = y => y;
+
+                xFrom = yFrom = 0;
+                xTo = matrix.Width;
+                yTo = matrix.Height;
             }
             else
             {
                 result = new Matrix(matrix.Height - kernelSize + 1, matrix.Width - kernelSize + 1);
+
                 xIndex = x => x - half;
                 yIndex = y => y - half;
+
+                xFrom = yFrom = half;
+                xTo = matrix.Width - half;
+                yTo = matrix.Height - half;
             }
 
-            for (int y = half; y < result.Height - half; y++)
+            for (int y = yFrom; y < yTo; y++)
             {
-                for (int x = half; x < result.Width - half; x++)
+                for (int x = xFrom; x < xTo; x++)
                 {
-                    var subMatrix = matrix.GetSubMatrix(x, x + kernelSize, y, y + kernelSize);
+                    var subMatrix = matrix.GetSubMatrix(x, y, kernelSize);
 
                     result[yIndex(y), xIndex(x)] = Convolve(subMatrix, kernel);
                 }

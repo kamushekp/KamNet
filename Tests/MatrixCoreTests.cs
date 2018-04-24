@@ -62,6 +62,14 @@ namespace Tests
             Assert.AreEqual(data[2][3], submatrix[1, 1]);
         }
 
+        [Test]
+        public void CanCreateUsingShape()
+        {
+            var defaultValue = 2.0;
+            var m = new Matrix(5, 5, defaultValue);
+            Assert.AreEqual(defaultValue, m[1, 1]);
+        }
+
         private int CantorsNumber(int i, int j) => (i + j + 1) * (i + j) / 2 + j;
 
     }
