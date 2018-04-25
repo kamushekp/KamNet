@@ -5,14 +5,14 @@ using System.Text;
 
 namespace KamNet
 {
-    public class ConvLayer
+    public class ConvolutionalPoolingLayer
     {
-        private int featureMapsInput;
-        private int neurons;
+        private Matrix[] inputFeatureMaps;
+        private int neuronsCount;
 
-        private ConvolutionalKernel[][] kernels;
+        private Matrix[][] sharedKernels;
         private double[] biases;
-        private Func<double, double> a;
+        private Func<double, double> activationFunction;
 
         private Matrix[][] deltaKernels;
         private double[] deltaBiases;
@@ -21,40 +21,40 @@ namespace KamNet
 
         private int widthInp;
 
-        public ConvLayer(int featureMapsInput, int neurons, Func<double, double> activationFunction, int widthInp)
+        public ConvolutionalPoolingLayer(int featureMapsInput, int neurons, Func<double, double> activationFunction, int widthInp)
         {
-            kernels = new ConvolutionalKernel[featureMapsInput][].
-                Select(x => new ConvolutionalKernel[neurons].Select(_ => new ConvolutionalKernel(kernelWidth)).ToArray()).
-                ToArray();
-            biases = new double[neurons].Select(x => 1.0).ToArray();
-            a = activationFunction;
 
-            this.featureMapsInput = featureMapsInput;
-            this.neurons = neurons;
-            this.widthInp = widthInp;
         }
 
-        Matrix[] Forward(Matrix[] input)
+        Matrix[] FeedForward(Matrix[] input)
         {
-            var result = new Matrix[neurons];
-            
-            for (int i = 0; i < neurons; i++)
-            {
-                var sum = new Matrix(widthInp - kernelWidth + 1, widthInp - kernelWidth + 1, 0.0);  //TODO
-                for (int j = 0; j < featureMapsInput; j++)
-                {
-                    var convolved = kernels[j][i].ApplyOnMatrix(input[j]);
-                    sum.Add(convolved);
-                }
+            inputFeatureMaps = input;
 
-                sum.ApplyElementwiseFunction(x => a(x + biases[i]));
-                //result[i] = sum.AveragePooling(2);
+            var result = new Matrix[neuronsCount];
+            for (int i = 0; i < neuronsCount; i++)
+            {
+                Matrix sum = null;
+                for (int j = 0; j < inputFeatureMaps.Length; j++)
+                {
+                    var convolved = inputFeatureMaps[j].KernelPooling(sharedKernels[j][i]);
+                    if (sum == null)
+                    {
+                        sum = convolved;
+                    }
+                    else
+                    {
+                        sum.Add(convolved);
+                    }
+                }
+                sum.ApplyElementwiseFunction(x => activationFunction(x + biases[i]));
+                
+                result[i] = sum.MaxPooling(2);
             }
 
             return result;
         }
 
-        void UpdateErrors(Matrix[] deltaOfNextLayer)
+        void Backpropagation(Matrix[] deltaOfNextLayer)
         {
             
         }

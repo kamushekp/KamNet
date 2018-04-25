@@ -12,7 +12,35 @@ namespace KamNet
             if (kernel.Height != kernel.Width || kernel.Width % 2 != 1) throw new NotImplementedException();
 
             var kernelSize = kernel.Width;
-            var half = kernelSize / 2;
+
+            var result = matrix.ReplaceElementsWithFuncOfElemsAround(x => x.Convolve(kernel), kernelSize, zeroPaddedEdges);
+
+            return result;
+        }
+
+        public static Matrix MaxPooling(this Matrix matrix, int windowSize, bool zeroPaddedEdges = false)
+        {
+            if (windowSize % 2 != 1) throw new NotImplementedException();
+
+            var result = matrix.ReplaceElementsWithFuncOfElemsAround(x => x.GetElements().Max(), windowSize, zeroPaddedEdges);
+
+            return result;
+        }
+
+        public static double Convolve(this Matrix first, Matrix second)
+        {
+            if (first.Width != second.Width || first.Height != second.Height)
+            {
+                throw new NotImplementedException();
+            }
+
+            var sum = first.GetElements().Zip(second.GetElements(), (x, y) => x * y).Sum();
+            return sum;
+        }
+
+        private static Matrix ReplaceElementsWithFuncOfElemsAround(this Matrix matrix, Func<Matrix, double> func, int windowSize, bool zeroPaddedEdges = false)
+        {
+            var half = windowSize / 2;
 
             Matrix result;
             Func<int, int> xIndex, yIndex;
@@ -31,7 +59,7 @@ namespace KamNet
             }
             else
             {
-                result = new Matrix(matrix.Height - kernelSize + 1, matrix.Width - kernelSize + 1);
+                result = new Matrix(matrix.Height - windowSize + 1, matrix.Width - windowSize + 1);
 
                 xIndex = x => x - half;
                 yIndex = y => y - half;
@@ -45,73 +73,13 @@ namespace KamNet
             {
                 for (int x = xFrom; x < xTo; x++)
                 {
-                    var subMatrix = matrix.GetSubMatrix(x, y, kernelSize);
+                    var subMatrix = matrix.GetSquareSlice(x, y, windowSize);
 
-                    result[yIndex(y), xIndex(x)] = Convolve(subMatrix, kernel);
+                    result[yIndex(y), xIndex(x)] = func(subMatrix);
                 }
             }
 
             return result;
-        }
-
-        public static Matrix MaxPooling(this Matrix matrix, int windowSize, bool zeroPaddedEdges = false)
-        {
-            if (windowSize % 2 != 1) throw new ArgumentException();
-
-            if (zeroPaddedEdges) throw new NotImplementedException();
-
-            var half = windowSize / 2;
-
-            Matrix result;
-            Func<int, int> xIndex, yIndex;
-            if (zeroPaddedEdges)
-            {
-                result = new Matrix(matrix.Height, matrix.Width);
-                xIndex = x => x;
-                yIndex = y => y;
-            }
-            else
-            {
-                result = new Matrix(matrix.Height - windowSize + 1, matrix.Width - windowSize + 1);
-                xIndex = x => x - half;
-                yIndex = y => y - half;
-            }
-
-            for (int y = half; y < result.Height - half; y++)
-            {
-                for (int x = half; x < result.Width - half; x++)
-                {
-                    var subMatrix = matrix.GetSubMatrix(x, x + windowSize, y, y + windowSize);
-
-                    result[yIndex(y), xIndex(x)] = subMatrix.GetElements().Max();
-                }
-            }
-
-            return result;
-        }
-
-
-        public static double Convolve(this Matrix first, Matrix second)
-        {
-            if (first.Width != second.Width || first.Height != second.Height)
-            {
-                throw new NotImplementedException();
-            }
-
-            var sum = 0.0;
-
-            for (int i = 0; i < first.Height; i++)
-            {
-                for (int j = 0; j < first.Width; j++)
-                {
-                    if (first.IsInBounds(i, j) && second.IsInBounds(i, j))
-                    {
-                        sum += first[i, j] * second[i, j];
-                    }
-                }
-            }
-
-            return sum;
         }
     }
 }

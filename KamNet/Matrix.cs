@@ -61,7 +61,7 @@ namespace KamNet
             {
                 if (!IsInBounds(x, y))
                 {
-                    throw new ArgumentNullException();
+                    throw new ArgumentException();
                 }
 
                 return data[y + allowedFromInclusiveY][x + allowedFromInclusiveX];
@@ -71,7 +71,7 @@ namespace KamNet
             {
                 if (!IsInBounds(x, y))
                 {
-                    throw new ArgumentNullException();
+                    throw new ArgumentException();
                 }
 
                 data[y + allowedFromInclusiveY][x + allowedFromInclusiveX] = value;
@@ -195,29 +195,39 @@ namespace KamNet
 
         /// <summary>
         ///     Квадратная подматрица со стороной нечетного размера, задаваемая центром и шириной.
+        ///     Если часть подматрицы, или вся, вылазит за пределы матрицы, то эта часть заполняется
+        ///     нулями.
         /// </summary>
         /// <param name="centerX"> Координата центра по оси Х </param>
         /// <param name="centerY"> Координата центра по оси У </param>
-        /// <param name="width"> Ширина подматрицы (нечетное число) </param>э
-        /// <param name="useOriginal"> Использовать оригинальную память / выделить новую </param>
+        /// <param name="width"> Ширина подматрицы (нечетное число) </param>
         /// <returns> Квадратная подматрица </returns>
-        public Matrix GetSubMatrix(int centerX, int centerY, int width, bool useOriginal = true)
+        public Matrix GetSquareSlice(int centerX, int centerY, int width)
         {
             if (width % 2 != 1)
             {
                 throw new ArgumentException();
             }
 
-            if (centerX < allowedFromInclusiveX ||
-                centerY < allowedFromInclusiveY ||
-                centerX >= allowedToExclusiveX ||
-                centerY >= allowedToExclusiveY)
-            {
-                throw new ArgumentException();
-            }
+            var result = new Matrix(rows: width, columns: width, initializer: 0.0);
 
             var half = width / 2;
-            return new Matrix(data, centerX - half, centerX + half + 1, centerY - half, centerY + half + 1, useOriginal);
+
+            // глобальные координаты левого верхнего угла квадрата
+            var dx = centerX - half;
+            var dy = centerY - half;
+            for (int x = centerX - half; x <= centerX + half; x++)
+            {
+                for (int y = centerY - half; y <= centerY + half; y++)
+                {
+                    if (IsInRealBounds(x, y))
+                    {
+                        result[y - dy, x - dx] = this[y, x];
+                    }
+                }
+            }
+
+            return result;
         }
 
         public Matrix GetSubMatrix(int sliceFromInclusiveX, int sliceToExclusiveX, int sliceFromInclusiveY, int sliceToExclusiveY, bool useOriginal = true)
@@ -314,6 +324,18 @@ namespace KamNet
                     allowedToExclusiveX = data[0].Length;
                 }
             }
+        }
+
+        private bool IsInRealBounds(int x, int y)
+        {
+            var inBounds =
+                x >= allowedFromInclusiveX &&
+                y >= allowedFromInclusiveY &&
+                x < allowedToExclusiveX &&
+                y < allowedToExclusiveY;
+
+            return inBounds;
+
         }
 
         private bool AreShapesSame(Matrix first, Matrix second)
