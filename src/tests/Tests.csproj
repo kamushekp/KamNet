@@ -10,10 +10,11 @@
     <PackageReference Include="nunit" Version="3.10.1" />
     <PackageReference Include="NUnit3TestAdapter" Version="3.10.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.6.1" />
+    <PackageReference Include="System.Numerics.Tensors" Version="0.1.0-preview2-180428-1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\KamNet\KamNet.csproj" />
+    <ProjectReference Include="..\FeedForwardNets\FeedForwardNet.csproj" />
   </ItemGroup>
 
 </Project>

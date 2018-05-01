@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace KamNet
+namespace FeedForward
 {
     class Program
     {

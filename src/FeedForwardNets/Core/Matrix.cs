@@ -5,15 +5,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KamNet
+namespace FeedForward.Core
 {
-    public class Matrix
+    public partial class Matrix
     {
         /// <summary>
         ///     массив с данными
         /// </summary>
         private double[][] data;
-
+        
         /// <summary>
         ///     ограничительные индексы, в рамках которых идет итерация по внутриннему массиву с данными.
         ///     Нужно для того, чтобы можно было создавать слайсы матрицы без копирования данных.
@@ -29,7 +29,7 @@ namespace KamNet
         /// </summary>
         private int dataHeight;
         private int dataWidth;
-
+        
         /// <summary>
         ///     параметры матрицы выражаются относительно ограничетельных индексов.
         /// </summary>
@@ -47,7 +47,6 @@ namespace KamNet
                 return allowedToExclusiveX - allowedFromInclusiveX;
             }
         }
-
 
         /// <summary>
         ///     индексация явно с 0 до высоты/ширины, но неявно (вдруг это слайс) - с учетом ограничительных индексов
@@ -176,73 +175,23 @@ namespace KamNet
             if (useOriginal)
             {
                 SetData(data);
+
+                if (sliceFromInclusiveX < 0 ||
+                    sliceFromInclusiveY < 0 ||
+                    sliceToExclusiveX > dataWidth ||
+                    sliceToExclusiveY > dataHeight)
+                {
+                    throw new ArgumentException();
+                }
+
+                SetIndexing(sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY);
+
             }
             else
             {
-                SetData(CopyData(data));
-            }
+                SetData(CopyData(data, sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY));
 
-            if (sliceFromInclusiveX < 0 ||
-                sliceFromInclusiveY < 0 ||
-                sliceToExclusiveX > dataWidth ||
-                sliceToExclusiveY > dataHeight)
-            {
-                throw new ArgumentException();
-            }
-
-            SetIndexing(sliceFromInclusiveX, sliceFromInclusiveY, sliceToExclusiveX, sliceToExclusiveY);
-        }
-
-        /// <summary>
-        ///     Квадратная подматрица со стороной нечетного размера, задаваемая центром и шириной.
-        ///     Если часть подматрицы, или вся, вылазит за пределы матрицы, то эта часть заполняется
-        ///     нулями.
-        /// </summary>
-        /// <param name="centerX"> Координата центра по оси Х </param>
-        /// <param name="centerY"> Координата центра по оси У </param>
-        /// <param name="width"> Ширина подматрицы (нечетное число) </param>
-        /// <returns> Квадратная подматрица </returns>
-        public Matrix GetSquareSlice(int centerX, int centerY, int width)
-        {
-            if (width % 2 != 1)
-            {
-                throw new ArgumentException();
-            }
-
-            var result = new Matrix(rows: width, columns: width, initializer: 0.0);
-
-            var half = width / 2;
-
-            // глобальные координаты левого верхнего угла квадрата
-            var dx = centerX - half;
-            var dy = centerY - half;
-            for (int x = centerX - half; x <= centerX + half; x++)
-            {
-                for (int y = centerY - half; y <= centerY + half; y++)
-                {
-                    if (IsInRealBounds(x, y))
-                    {
-                        result[y - dy, x - dx] = this[y, x];
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        public Matrix GetSubMatrix(int sliceFromInclusiveX, int sliceToExclusiveX, int sliceFromInclusiveY, int sliceToExclusiveY, bool useOriginal = true)
-        {
-            return new Matrix(data, sliceFromInclusiveX, sliceToExclusiveX, sliceFromInclusiveY, sliceToExclusiveY, useOriginal);
-        }
-
-        public IEnumerable<double> GetElements()
-        {
-            for (int i = allowedFromInclusiveY; i < allowedToExclusiveY; i++)
-            {
-                for (int j = allowedFromInclusiveX; j < allowedToExclusiveX; j++)
-                {
-                    yield return this.data[i][j];
-                }
+                SetDefaultIndexing();
             }
         }
 
@@ -275,29 +224,15 @@ namespace KamNet
 
         public override string ToString()
         {
-            return $"Matrix [{Height} x {Width}] from data {data} shape of [{dataHeight} x {dataWidth}]";
-        }
-
-        public void ApplyElementwiseFunction(Func<double, double> func)
-        {
-            for (int i = allowedFromInclusiveY; i < allowedToExclusiveY; i++)
+            if (Height == dataHeight && Width == dataWidth)
             {
-                for (int j = allowedFromInclusiveX; j < allowedToExclusiveX; j++)
-                {
-                    data[i][j] = func(data[i][j]);
-                }
+                return $"Matrix [{Height} x {Width}]";
             }
-        }
-
-        public void Add(Matrix matrix)
-        {
-            for (int i = allowedFromInclusiveY; i < allowedToExclusiveY; i++)
+            else
             {
-                for (int j = allowedFromInclusiveX; j < allowedToExclusiveX; j++)
-                {
-                    data[i][j] += matrix.data[i][j];
-                }
+                return $"Submatrix [{Height} x {Width}] from [{dataHeight} x {dataWidth}]";
             }
+
         }
 
         public bool IsInBounds(int x, int y)
@@ -346,6 +281,26 @@ namespace KamNet
                 first.allowedToExclusiveY == second.allowedToExclusiveY;
 
             return areSame;
+        }
+
+        private double[][] CopyData(double[][] data, int sliceFromInclusiveX, int sliceFromInclusiveY, int sliceToExclusiveX, int sliceToExclusiveY)
+        {
+            var n = sliceToExclusiveY - sliceFromInclusiveY;
+            var m = sliceToExclusiveX - sliceFromInclusiveX;
+
+            var result = new double[n][];
+
+            for (int row = 0; row < n; row++)
+            {
+                result[row] = new double[m];
+
+                for (int col = 0; col < m; col++)
+                {
+                    result[row][col] = data[row + sliceFromInclusiveY][col + sliceFromInclusiveX];
+                }
+            }
+
+            return result;
         }
 
         private double[][] CopyData(double[][] data)

@@ -1,4 +1,5 @@
-﻿using KamNet;
+﻿using FeedForward;
+using FeedForward.Core;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
@@ -46,7 +47,7 @@ namespace Tests
             var big = new Matrix(data: data);
             var second = new Matrix(rows: 3, columns: 3, initializer: 1.0);
 
-            var convResult = big.KernelPooling(second);
+            var convResult = big.KernelConvolution(second);
 
             CollectionAssert.AreEqual(new[] { 54, 63, 72, 99, 108, 117, 144, 153, 162 }, convResult.GetElements().ToArray());
         }
@@ -57,17 +58,18 @@ namespace Tests
             var big = new Matrix(data: data);
             var second = new Matrix(rows: 3, columns: 3, initializer: 1.0);
 
-            var convResult = big.KernelPooling(second, zeroPaddedEdges: true);
+            var convResult = big.KernelConvolution(second, zeroPaddedEdges: true);
 
             CollectionAssert.AreEqual(new[] { 12, 21, 27, 33, 24, 33, 54, 63, 72, 51, 63, 99, 108, 117, 81, 93, 144, 153, 162, 111, 72, 111, 117, 123, 84 }, convResult.GetElements().ToArray());
         }
 
         [Test]
-        public void Can_Max_Pool_Big_Matrix_with_no_Zero_PaddedEdges()
+        public void Can_Average_Pool_2x2()
         {
-            var big = new Matrix(data: data);
-            var maxPooled = big.MaxPooling(3, zeroPaddedEdges: false);
-            CollectionAssert.AreEqual(new[] { 12, 13, 14, 17, 18, 19, 22, 23, 24 }, maxPooled.GetElements().ToArray());
+            var big = new Matrix(data: data).GetSubMatrix(0, 4, 0, 4, false);
+            var avgResult = big.Average2x2Pooling();
+            CollectionAssert.AreEqual(new[] { 3, 5, 13, 15}, avgResult.GetElements().ToArray());
         }
+
     }
 }
