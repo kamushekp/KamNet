@@ -7,7 +7,8 @@
 
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.10.1" />
-    <PackageReference Include="System.Numerics.Tensors" Version="0.1.0-preview2-180428-1" />
+    <PackageReference Include="System.Memory" Version="4.5.0-preview2-26406-04" />
+    <PackageReference Include="System.Numerics.Tensors" Version="0.1.0-preview2-180220-1" />
   </ItemGroup>
 
 </Project>
