@@ -108,6 +108,7 @@ namespace Tests
 
             var output = net.GetOutput(input)[0, 0];
             var expected = first * first - second * second;
+            Assert.AreEqual(expected, output, 0.01);
         }
     }
 }
