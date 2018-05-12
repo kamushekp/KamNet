@@ -32,8 +32,21 @@ namespace FeedForwardNet
             return result;
         }
 
+
+        public static void FillWithValues(this Tensor<float> tensor, params float[] values)
+        {
+            if (tensor.Length != values.Length)
+            {
+                throw new ArgumentException();
+            }
+            for(int i = 0; i < tensor.Length; i++)
+            {
+                tensor.SetValue(i, values[i]);
+            }
+        }
+
         /// <summary>
-        ///     Заполняет тензор числами согласно функции от набора индексов.
+        ///     Заполняет тензор объектами типа T согласно функции от набора индексов.
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="tensor"></param>
@@ -49,13 +62,12 @@ namespace FeedForwardNet
                 tensor.SetValue(i, filler);
             }
         }
-
-        public static Tensor<float> FillWithValue(this Tensor<float> tensor, float value)
-        {
-            tensor.Fill(value);
-            return tensor;
-        }
-
+        
+        /// <summary>
+        ///     Заполняет тензор, используя функцию float -> float
+        /// </summary>
+        /// <param name="tensor"></param>
+        /// <param name="fillRule"></param>
         public static void FillWithFunction(this Tensor<float> tensor, Func<float, float> fillRule)
         {
             var elementsCount = tensor.Length;
@@ -95,7 +107,6 @@ namespace FeedForwardNet
 
             return result;
         }
-
 
         /// <summary>
         ///     Ищет индекс максимального числа в одномерном куске памяти.

@@ -10,28 +10,18 @@ using System.Text;
 
 namespace FeedForward
 {
-    public enum CostFunction
-    {
-        quadratic
-    }
-
     public class Net
     {
         private int layersCount;
         private List<AFeedForwardLayer> layers;
-        private Func<Tensor<float>, Tensor<float>, Tensor<float>> costGradientByActivation;
 
-        public Net(CostFunction costFunction = CostFunction.quadratic, params AFeedForwardLayer[] layers)
+        private ICostFunction costFunction;
+
+        public Net(ICostFunction costFunction, params AFeedForwardLayer[] layers)
         {
             this.layers = new List<AFeedForwardLayer>(layers);
             this.layersCount = layers.Length;
-
-            switch(costFunction)
-            {
-                case CostFunction.quadratic:
-                    this.costGradientByActivation = (expected, actual) => actual - expected;
-                    break;
-            }
+            this.costFunction = costFunction;
         }
 
         public Tensor<float> GetOutput(Tensor<float> input)
@@ -44,22 +34,10 @@ namespace FeedForward
             return result;
         }
 
-        public int Classify(Tensor<float> input)
-        {
-            var result = GetOutput(input);
-            var maxIndex = result.GetIndexOfMax();
-            return maxIndex;
-        }
-
-        public void GetNetError(Tensor<float>[] input, Tensor<float>[] actualOutput)
-        {
-
-        }
-
-        public void Learn(Tensor<float>[] input, Tensor<float>[] actualOutput)
+        public void Learn(Tensor<float>[] input, Tensor<float>[] expectedOutput)
         {
             var rand = new Random(1234);
-            var batchSize = 10;
+            var batchSize = 20;
 
             for (int i = 0; i < 10000; i++)
             {
@@ -68,29 +46,37 @@ namespace FeedForward
                     ToArray();
 
                 var batch = indexes.Select(index => input[index]).ToArray();
-                var actual = indexes.Select(index => actualOutput[index]).ToArray();
-                LearnOnBatch(batch, actual);
+                var actual = indexes.Select(index => expectedOutput[index]).ToArray();
+
+                var costOnBatch = LearnOnBatch(batch, actual);
+                Console.WriteLine(costOnBatch);
             }
         }
 
-        private void LearnOnBatch(Tensor<float>[] batch, Tensor<float>[] actual)
+        private float LearnOnBatch(Tensor<float>[] batch, Tensor<float>[] expected)
         {
+            var outputs = new List<Tensor<float>>();
+
             for (int i = 0; i < batch.Length; i++)
             {
                 var oneFromBatch = batch[i];
                 var feedForwarded = GetOutput(oneFromBatch);
-                var expected = actual[i];
-                var costGrad = costGradientByActivation(expected, feedForwarded);
+                var costGrad = costFunction.GradientForUnitByActivation(expected[i], feedForwarded);
 
-                AccumulateSampleError(costGrad);
+                AccumulateUnitError(costGrad);
+
+                outputs.Add(feedForwarded);
             }
 
             foreach (var layer in layers)
             {
-                layer.UpdateParametres();
+                layer.UpdateParameters();
             }
+
+            return 0f;
         }
-        private void AccumulateSampleError(Tensor<float> error)
+
+        private void AccumulateUnitError(Tensor<float> error)
         {
             layers[layersCount - 1].ProcessCostFunctionGradient(error);
 
@@ -98,7 +84,6 @@ namespace FeedForward
             {
                 layers[i].AccumulateSampleError(layers[i + 1]);
             }
-
         }
 
     }

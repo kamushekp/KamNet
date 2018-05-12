@@ -45,14 +45,17 @@ namespace FeedForward.FeedForwardLayers
             Biases = new DenseTensor<float>(new[] { OutputCount, 1 });
             Weights = new DenseTensor<float>(new int[] { OutputCount, InputCount });
 
-            Biases.FillWithFunction(x => x * 0 + 1f / OutputCount);
-            Weights.FillWithFunction(x => x * 0 + 1f / InputCount);
+            Weights.FillWithValues(new float[OutputCount * InputCount].
+                Select((x, i) => i % 2 == 0? 1f / OutputCount : -1f / OutputCount).
+                ToArray());
+
+            Biases.Fill(1f);
         }
 
-        public override void UpdateParametres()
+        public override void UpdateParameters()
         {
-            Biases -= biasesUpdates * (learningRate / batchesCount);
-            Weights -= weightsUpdates * (learningRate / batchesCount);
+            Biases = Biases - biasesUpdates * (learningRate / batchesCount);
+            Weights = Weights - weightsUpdates * (learningRate / batchesCount);// - Weights * (learningRate * 5.0f / batchesCount);
 
             batchesCount = 0;
             biasesUpdates.Fill(0f);
@@ -72,17 +75,17 @@ namespace FeedForward.FeedForwardLayers
                 var backpropagateBeforeActivation = weightsOfNextLayer.Transpose().MatrixMultiply(errorOfNextLayer);
                 LastError = activationDerivative(LastOutput) * backpropagateBeforeActivation;
 
-                UpdateParameters();
+                AccumulateParametersUpdates();
             }
         }
 
         public override void ProcessCostFunctionGradient(Tensor<float> costGrad)
         {
             LastError = activationDerivative(LastOutput) * costGrad;
-            UpdateParameters();
+            AccumulateParametersUpdates();
         }
 
-        private void UpdateParameters()
+        private void AccumulateParametersUpdates()
         {
             biasesUpdates += LastError;
             weightsUpdates += LastError.MatrixMultiply(LastInput.Transpose());

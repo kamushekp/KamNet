@@ -21,7 +21,7 @@ namespace FeedForward.FeedForwardLayers.Interfaces
         public Tensor<float> LastOutput { get; set; }
         public Tensor<float> LastError { get; set; }
 
-        public abstract void UpdateParametres();
+        public abstract void UpdateParameters();
         public abstract Tensor<float> FeedForward(Tensor<float> input);
         public abstract void AccumulateSampleError(AFeedForwardLayer nextLayer);
         public abstract void ProcessCostFunctionGradient(Tensor<float> outputError);
